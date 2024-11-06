@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Selection</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            padding: 20px;
+        }
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .project-card {
+            height: 200px;
+            border: none;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .project-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+        .project-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.7) 100%);
+            z-index: 1;
+        }
+        .project-card-content {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            color: white;
+            z-index: 2;
+        }
+        .project-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin: 0;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+        }
+        #user-info {
+            color: white;
+            text-align: center;
+            margin-bottom: 20px;
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 10px 20px;
+            border-radius: 5px;
+            backdrop-filter: blur(5px);
+        }
+        #signout-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background-color: rgba(244, 67, 54, 0.8);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+        #signout-btn:hover {
+            background-color: rgba(211, 47, 47, 0.9);
+        }
+        .popup {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .popup.show {
+            opacity: 1;
+        }
+        .popup.success {
+            background-color: #4CAF50;
+        }
+        .popup.error {
+            background-color: #f44336;
+        }
+        .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+
+    .spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+    </style>
+</head>
+<body>
+    <div id="user-info">
+        <h2>Welcome, <span id="user-name"></span></h2>
+    </div>
+    <button id="signout-btn"><i class="fas fa-sign-out-alt"></i> Sign Out</button>
+    <div class="container">
+        <h1>Select a Project to View</h1>
+        <div class="grid" id="project-grid"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCXKwTmQHRdopHmdPV56Uypxt3yy-vm4Ls",
+            authDomain: "auth-js-c349b.firebaseapp.com",
+            databaseURL:"https://auth-js-c349b-default-rtdb.firebaseio.com",
+            projectId: "auth-js-c349b",
+            storageBucket: "auth-js-c349b.appspot.com",
+            messagingSenderId: "8525102033",
+            appId: "1:8525102033:web:19c8b591e44c8213ee7ef0"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const database = getDatabase(app);
+
+        const userNameElement = document.getElementById('user-name');
+        const signoutBtn = document.getElementById('signout-btn');
+        const projectGrid = document.getElementById('project-grid');
+
+        const projects = [
+            { name: "Todo App", path: "todo.html", image: "/images/todo-app.jpg?height=200&width=250" },
+            { name: "Image Gallery", path: "https://image-gallery-using-js.vercel.app/", image: "/images/image-gallery.jpg?height=200&width=250" },
+            { name: "Form Validation", path: "https://form-validation-using-js-gamma.vercel.app/", image: "/images/form-validation.jpg?height=200&width=250" },
+            { name: "Text Editor", path: "https://text-editor-using-js.vercel.app/", image: "/images/text-editor.jpg?height=200&width=250" },
+            { name: "Travel Agency Website", path: "https://travel-agency-website-flax.vercel.app/", image: "/images/travel-agency-website.jpg?height=200&width=250" },
+            { name: "My Portfolio", path: "https://personal-portfolio-assignment.vercel.app/", image: "/images/personal-portfolio.jpg?height=200&width=250" },
+            { name: "Stopwatch Web Application", path: "https://stopwatch-web-application-six.vercel.app/", image: "/images/stopwatch.jpg?height=200&width=250" },
+            { name: "TicTacToe Web Application", path: "https://tic-tac-toe-web-application-chi.vercel.app/", image: "/images/tictactie.jpg?height=200&width=250" },
+            { name: "Responsive Landing Page", path: "https://responsive-landing-page-green.vercel.app/", image: "/images/responsive-landing-page.jpg?height=200&width=250" },
+            { name: "Resume Builder Web Application", path:"https://milestone-5-shareable-resume-builder-by-taha.vercel.app/", image: "/images/resume.jpg?height=200&width=250" },
+            { name: "Countdown Timer App", path: "https://count-down-timer-iota-self.vercel.app/", image: "/images/countdown-timer.jpg?height=200&width=250" },
+            { name: "Weather Application", path: "https://weather-widget-app-three.vercel.app/", image: "/images/weather-app.jpg?height=200&width=250" },
+            { name: "Birthday Wishes App", path: "https://birthday-wishes-app-3d-ti69.vercel.app/", image: "/images/birthday-wishes-app.jpg?height=200&width=250" },
+            { name: "Number Guessing Game", path: "https://number-guessing-game-6a7v.vercel.app/", image: "/images/number-game.jpg?height=200&width=250" },
+            { name: "Calculator Web App", path: "https://simple-calculator-app-mocha.vercel.app/", image: "/images/simple-calculator.jpg?height=200&width=250" },
+            { name: "Random Jokes Generator App", path:"https://random-jokes-generator-app-b8qx.vercel.app/", image: "/images/jokes-app.jpg?height=200&width=250" },
+            { name: "Tip Calculator App", path: "https://tip-calculator-app-jade-pi.vercel.app/", image: "/images/tip-calculator.jpg?height=200&width=250" },
+            { name: "Password Generator App", path: "https://password-generator-app-k3w8.vercel.app/", image: "/images/password-generator-app.jpg?height=200&width=250" },
+            { name: "Unit Converter App", path: "https://unit-converter-apps--theta.vercel.app/", image: "/images/unit-converter-app.jpg?height=200&width=250" },
+            { name: "BMI Calculator App", path: "https://bmi-calculator-app-uowi.vercel.app/", image: "/images/bmi-calculator.jpg?height=200&width=250" },
+        ];
+
+        function createProjectCards() {
+            projects.forEach((project) => {
+                const card = document.createElement('div');
+                card.className = 'project-card';
+                card.style.backgroundImage = `url('${project.image}')`;
+                card.style.backgroundSize = 'cover';
+                card.style.backgroundPosition = 'center';
+                card.onclick = () => window.location.href = project.path;
+
+                const content = document.createElement('div');
+                content.className = 'project-card-content';
+                content.innerHTML = `<h3 class="project-title">${project.name}</h3>`;
+
+                card.appendChild(content);
+                projectGrid.appendChild(card);
+            });
+        }
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                const userRef = ref(database, `users/${user.uid}`);
+                onValue(userRef, (snapshot) => {
+                    const userData = snapshot.val();
+                    if (userData) {
+                        userNameElement.textContent = userData.name || 'User';
+                    }
+                });
+                createProjectCards();
+            } else {
+                window.location.href = 'login.html';
+            }
+        });
+
+        signoutBtn.addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                window.location.href = 'login.html';
+            } catch (error) {
+                console.error("Sign out error:", error.message);
+                showPopup("Sign out error: " + error.message, 'error');
+            }
+        });
+
+        function showPopup(message, type = 'success') {
+            const popup = document.createElement('div');
+            popup.className = `popup ${type}`;
+            popup.textContent = message;
+            document.body.appendChild(popup);
+            setTimeout(() => {
+                popup.classList.add('show');
+            }, 10);
+            setTimeout(() => {
+                popup.classList.remove('show');
+                setTimeout(() => {
+                    popup.remove();
+                }, 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
